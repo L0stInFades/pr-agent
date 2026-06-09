@@ -6,7 +6,7 @@ import pytest
 
 import pr_agent.algo.ai_handlers.litellm_ai_handler as litellm_handler
 import pr_agent.algo.ai_handlers.litellm_helpers as litellm_helpers
-from pr_agent.algo import MAX_TOKENS
+from pr_agent.algo import MAX_TOKENS, STREAMING_REQUIRED_MODELS
 from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
 
@@ -87,8 +87,11 @@ class TestMiniMaxM3:
         settings = _Settings(openai_key="minimax-key", openai_api_base=MINIMAX_BASE)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
-            mock_call.return_value = _mock_response()
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call, \
+                patch("pr_agent.algo.ai_handlers.litellm_ai_handler._handle_streaming_response",
+                      new_callable=AsyncMock) as mock_stream:
+            mock_call.return_value = "stream"
+            mock_stream.return_value = ("ok", "stop")
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="MiniMax-M3", system="sys", user="usr")
 
@@ -98,32 +101,41 @@ class TestMiniMaxM3:
         assert kwargs["api_key"] == "minimax-key"
         assert kwargs["reasoning_split"] is True
         assert kwargs["max_completion_tokens"] == MINIMAX_M3_RECOMMENDED_MAX_COMPLETION_TOKENS
+        assert kwargs["stream"] is True
 
     @pytest.mark.asyncio
     async def test_openai_prefixed_minimax_m3_normalizes_when_base_url_is_minimax(self, monkeypatch):
         settings = _Settings(openai_key="minimax-key", openai_api_base=MINIMAX_BASE)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
-            mock_call.return_value = _mock_response()
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call, \
+                patch("pr_agent.algo.ai_handlers.litellm_ai_handler._handle_streaming_response",
+                      new_callable=AsyncMock) as mock_stream:
+            mock_call.return_value = "stream"
+            mock_stream.return_value = ("ok", "stop")
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="openai/MiniMax-M3", system="sys", user="usr")
 
         assert mock_call.call_args[1]["model"] == "minimax/MiniMax-M3"
+        assert mock_call.call_args[1]["stream"] is True
 
     @pytest.mark.asyncio
     async def test_minimax_section_key_and_base_are_used(self, monkeypatch):
         settings = _Settings(minimax_key="minimax-key", minimax_api_base=MINIMAX_BASE)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
-            mock_call.return_value = _mock_response()
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call, \
+                patch("pr_agent.algo.ai_handlers.litellm_ai_handler._handle_streaming_response",
+                      new_callable=AsyncMock) as mock_stream:
+            mock_call.return_value = "stream"
+            mock_stream.return_value = ("ok", "stop")
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="minimax/MiniMax-M3", system="sys", user="usr")
 
         kwargs = mock_call.call_args[1]
         assert kwargs["api_base"] == MINIMAX_BASE
         assert kwargs["api_key"] == "minimax-key"
+        assert kwargs["stream"] is True
 
     @pytest.mark.asyncio
     async def test_litellm_extra_body_can_override_minimax_defaults(self, monkeypatch):
@@ -143,8 +155,11 @@ class TestMiniMaxM3:
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
         monkeypatch.setattr(litellm_helpers, "get_settings", lambda: settings)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
-            mock_call.return_value = _mock_response()
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call, \
+                patch("pr_agent.algo.ai_handlers.litellm_ai_handler._handle_streaming_response",
+                      new_callable=AsyncMock) as mock_stream:
+            mock_call.return_value = "stream"
+            mock_stream.return_value = ("ok", "stop")
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="MiniMax-M3", system="sys", user="usr")
 
@@ -153,6 +168,7 @@ class TestMiniMaxM3:
         assert kwargs["thinking"] == {"type": "disabled"}
         assert kwargs["max_completion_tokens"] == 123
         assert kwargs["top_p"] == 0.9
+        assert kwargs["stream"] is True
 
     @pytest.mark.asyncio
     async def test_minimax_m3_max_completion_tokens_are_clamped_to_official_limit(self, monkeypatch):
@@ -163,14 +179,21 @@ class TestMiniMaxM3:
         )
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
-            mock_call.return_value = _mock_response()
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call, \
+                patch("pr_agent.algo.ai_handlers.litellm_ai_handler._handle_streaming_response",
+                      new_callable=AsyncMock) as mock_stream:
+            mock_call.return_value = "stream"
+            mock_stream.return_value = ("ok", "stop")
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="MiniMax-M3", system="sys", user="usr")
 
         assert mock_call.call_args[1]["max_completion_tokens"] == MINIMAX_M3_MAX_COMPLETION_TOKENS
+        assert mock_call.call_args[1]["stream"] is True
 
     def test_minimax_m3_token_aliases_are_registered(self):
         assert MAX_TOKENS["MiniMax-M3"] == 1000000
         assert MAX_TOKENS["minimax/MiniMax-M3"] == 1000000
         assert MAX_TOKENS["openai/MiniMax-M3"] == 1000000
+
+    def test_minimax_m3_requires_streaming(self):
+        assert "minimax/MiniMax-M3" in STREAMING_REQUIRED_MODELS
