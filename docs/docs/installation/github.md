@@ -190,8 +190,10 @@ To use Gemini models instead of the default OpenAI models:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Set the model to Gemini
-        config.model: "gemini/gemini-1.5-flash"
-        config.fallback_models: '["gemini/gemini-1.5-flash"]'
+        config.model: "gemini/gemini-3.1-pro-preview"
+        config.fallback_models: '["gemini/gemini-3.5-flash"]'
+        # Request Gemini's highest thinking level for Gemini 3+ models
+        config.reasoning_effort: "high"
         # Add your Gemini API key
         GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         # Tool configuration

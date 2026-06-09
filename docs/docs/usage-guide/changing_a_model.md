@@ -215,14 +215,17 @@ To use [Google AI Studio](https://aistudio.google.com/) models, set the relevant
 
 ```toml
 [config] # in configuration.toml
-model="gemini/gemini-1.5-flash"
-fallback_models=["gemini/gemini-1.5-flash"]
+model="gemini/gemini-3.1-pro-preview"
+fallback_models=["gemini/gemini-3.5-flash"]
+reasoning_effort="high"
 
 [google_ai_studio] # in .secrets.toml
 gemini_api_key = "..."
 ```
 
 If you don't want to set the API key in the .secrets.toml file, you can set the `GOOGLE_AI_STUDIO.GEMINI_API_KEY` environment variable.
+
+For Gemini 3.x models such as `gemini/gemini-3.1-pro-preview` and `gemini/gemini-3.5-flash`, set `config.reasoning_effort = "high"` to request Gemini's highest `thinkingLevel` through LiteLLM. Gemini does not support `xhigh`; if `xhigh` is configured for a Gemini model, PR-Agent maps it to `high`.
 
 ### Anthropic
 
@@ -428,7 +431,7 @@ custom_model_max_tokens= ...
 
 ## Dedicated parameters
 
-### OpenAI models
+### OpenAI and Gemini models
 
 ```toml
 [config]
@@ -436,6 +439,8 @@ reasoning_effort = "medium" # "none", "minimal", "low", "medium", "high", "xhigh
 ```
 
 With the OpenAI models that support reasoning effort (eg: gpt-5.4-mini), you can specify its reasoning effort via `config` section. The default value is `medium`. You can change it to any supported value based on your usage. Available values depend on the model and provider.
+
+For Google AI Studio or Vertex Gemini 3 models, LiteLLM maps `reasoning_effort` to Gemini's `thinkingLevel`. Use `reasoning_effort = "high"` for the maximum Gemini thinking level on models such as `gemini/gemini-3.1-pro-preview` and `gemini/gemini-3.5-flash`. Gemini 3 models do not support `xhigh`, so PR-Agent maps `xhigh` to `high` for Gemini models.
 
 ### Anthropic models
 

@@ -363,6 +363,78 @@ class TestLiteLLMReasoningEffort:
                 assert "reasoning_effort" not in call_kwargs
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("model", [
+        "gemini/gemini-3.1-pro-preview",
+        "gemini/gemini-3.5-flash",
+    ])
+    async def test_google_ai_studio_gemini_3_models_use_high_reasoning_effort(
+        self, monkeypatch, mock_logger, model
+    ):
+        """Test Google AI Studio Gemini 3 thinking models pass reasoning_effort to LiteLLM."""
+        fake_settings = create_mock_settings("high")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model=model,
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["model"] == model
+            assert call_kwargs["reasoning_effort"] == "high"
+            assert "allowed_openai_params" not in call_kwargs
+            mock_logger.info.assert_any_call(
+                f"Adding reasoning_effort with value high to model {model}."
+            )
+
+    @pytest.mark.asyncio
+    async def test_gemini_vertex_model_uses_reasoning_effort(self, monkeypatch, mock_logger):
+        """Test Vertex Gemini thinking models pass reasoning_effort to LiteLLM too."""
+        fake_settings = create_mock_settings("medium")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="vertex_ai/gemini-3.5-flash",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_gemini_xhigh_maps_to_high(self, monkeypatch, mock_logger):
+        """Test Gemini maps PR-Agent's xhigh config to Gemini's highest supported level."""
+        fake_settings = create_mock_settings("xhigh")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="gemini/gemini-3.1-pro-preview",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            mock_logger.warning.assert_any_call(
+                "Gemini models do not support reasoning_effort='xhigh'. "
+                "Using 'high', which maps to Gemini thinkingLevel='high'."
+            )
+
+    @pytest.mark.asyncio
     async def test_gpt5_suffix_removal(self, monkeypatch, mock_logger):
         """Test that _thinking suffix is properly removed from model name."""
         fake_settings = create_mock_settings("low")

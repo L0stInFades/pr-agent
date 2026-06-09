@@ -25,6 +25,12 @@ from pr_agent.log import get_logger
 
 MODEL_RETRIES = 2
 DUMMY_LITELLM_API_KEY = "dummy_key"  # placeholder set when no OpenAI key is configured
+GEMINI_REASONING_MODEL_PREFIXES = (
+    "gemini/gemini-2.5-",
+    "gemini/gemini-3",
+    "vertex_ai/gemini-2.5-",
+    "vertex_ai/gemini-3",
+)
 
 
 class LiteLLMAIHandler(BaseAiHandler):
@@ -385,6 +391,34 @@ class LiteLLMAIHandler(BaseAiHandler):
 
         return kwargs
 
+    @staticmethod
+    def _is_gemini_reasoning_model(model: str) -> bool:
+        return model.startswith(GEMINI_REASONING_MODEL_PREFIXES)
+
+    def _supports_reasoning_effort(self, model: str) -> bool:
+        return model in self.support_reasoning_models or self._is_gemini_reasoning_model(model)
+
+    def _get_configured_reasoning_effort(self, model: str) -> str:
+        config_effort = get_settings().config.reasoning_effort
+        try:
+            effort = ReasoningEffort(config_effort).value
+        except (ValueError, TypeError):
+            effort = ReasoningEffort.MEDIUM.value
+            if config_effort is not None:
+                get_logger().warning(
+                    f"Invalid reasoning_effort '{config_effort}' in config. "
+                    f"Using default '{effort}'. Valid values: {[e.value for e in ReasoningEffort]}"
+                )
+
+        if self._is_gemini_reasoning_model(model) and effort == ReasoningEffort.XHIGH.value:
+            get_logger().warning(
+                "Gemini models do not support reasoning_effort='xhigh'. "
+                "Using 'high', which maps to Gemini thinkingLevel='high'."
+            )
+            return ReasoningEffort.HIGH.value
+
+        return effort
+
     @property
     def deployment_id(self):
         """
@@ -432,18 +466,7 @@ class LiteLLMAIHandler(BaseAiHandler):
 
                 thinking_kwargs_gpt5 = None
                 if model.startswith('gpt-5'):
-                    # Use configured reasoning_effort or default to MEDIUM
-                    config_effort = get_settings().config.reasoning_effort
-                    try:
-                        ReasoningEffort(config_effort)
-                        effort = config_effort
-                    except (ValueError, TypeError):
-                        effort = ReasoningEffort.MEDIUM.value
-                        if config_effort is not None:
-                            get_logger().warning(
-                                f"Invalid reasoning_effort '{config_effort}' in config. "
-                                f"Using default '{effort}'. Valid values: {[e.value for e in ReasoningEffort]}"
-                            )
+                    effort = self._get_configured_reasoning_effort(model)
 
                     thinking_kwargs_gpt5 = {
                         "reasoning_effort": effort,
@@ -480,19 +503,8 @@ class LiteLLMAIHandler(BaseAiHandler):
                         del kwargs['temperature']
 
                 # Add reasoning_effort if model supports it
-                if model in self.support_reasoning_models:
-                    config_effort = get_settings().config.reasoning_effort
-                    try:
-                        ReasoningEffort(config_effort)
-                        reasoning_effort = config_effort
-                    except (ValueError, TypeError):
-                        reasoning_effort = ReasoningEffort.MEDIUM.value
-                        if config_effort is not None:
-                            get_logger().warning(
-                                f"Invalid reasoning_effort '{config_effort}' in config. "
-                                f"Using default '{reasoning_effort}'. Valid values: {[e.value for e in ReasoningEffort]}"
-                            )
-
+                if self._supports_reasoning_effort(model):
+                    reasoning_effort = self._get_configured_reasoning_effort(model)
                     get_logger().info(f"Adding reasoning_effort with value {reasoning_effort} to model {model}.")
                     kwargs["reasoning_effort"] = reasoning_effort
 
