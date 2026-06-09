@@ -29,6 +29,7 @@ MINIMAX_M3_MODEL = "MiniMax-M3"
 MINIMAX_MODEL_PREFIX = "minimax/"
 MINIMAX_OPENAI_MODEL_PREFIX = "openai/"
 MINIMAX_API_BASE_MARKERS = ("api.minimax.io", "api.minimaxi.com")
+MINIMAX_M3_MAX_COMPLETION_TOKENS = 524288
 GEMINI_REASONING_MODEL_PREFIXES = (
     "gemini/gemini-2.5-",
     "gemini/gemini-3",
@@ -480,6 +481,16 @@ class LiteLLMAIHandler(BaseAiHandler):
             return get_settings().get("OPENAI.KEY")
         return None
 
+    @staticmethod
+    def _normalize_minimax_m3_max_completion_tokens(value) -> int:
+        try:
+            max_completion_tokens = int(value)
+        except (TypeError, ValueError):
+            return -1
+        if max_completion_tokens <= 0:
+            return -1
+        return min(max_completion_tokens, MINIMAX_M3_MAX_COMPLETION_TOKENS)
+
     def _apply_minimax_m3_options(self, model: str, kwargs: dict) -> dict:
         if not self._is_minimax_m3_model(model):
             return kwargs
@@ -493,13 +504,13 @@ class LiteLLMAIHandler(BaseAiHandler):
         if thinking_type in {"adaptive", "disabled"}:
             kwargs.setdefault("thinking", {"type": thinking_type})
 
-        max_completion_tokens = get_settings().get("MINIMAX.MAX_COMPLETION_TOKENS", -1)
-        try:
-            max_completion_tokens = int(max_completion_tokens)
-        except (TypeError, ValueError):
-            max_completion_tokens = -1
+        max_completion_tokens = self._normalize_minimax_m3_max_completion_tokens(
+            kwargs.get("max_completion_tokens", get_settings().get("MINIMAX.MAX_COMPLETION_TOKENS", -1))
+        )
         if max_completion_tokens > 0:
-            kwargs.setdefault("max_completion_tokens", max_completion_tokens)
+            kwargs["max_completion_tokens"] = max_completion_tokens
+        else:
+            kwargs.pop("max_completion_tokens", None)
 
         return kwargs
 

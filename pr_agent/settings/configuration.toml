@@ -332,7 +332,7 @@ service_callback = []
 api_base = "https://api.minimax.io/v1"
 reasoning_split = true # Keeps MiniMax-M3 thinking out of the visible content field
 thinking = "" # "", "adaptive", or "disabled"
-max_completion_tokens = -1 # Optional MiniMax-M3 generation cap; -1 leaves provider default
+max_completion_tokens = 524288 # MiniMax-M3 official maximum generation cap
 
 [pr_similar_issue]
 skip_comments = false

@@ -11,6 +11,7 @@ from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
 
 MINIMAX_BASE = "https://api.minimax.io/v1"
+MINIMAX_M3_MAX_COMPLETION_TOKENS = 524288
 
 
 class _Section:
@@ -34,7 +35,7 @@ class _Settings:
         litellm_extra_body=None,
         minimax_reasoning_split=True,
         minimax_thinking=None,
-        minimax_max_completion_tokens=-1,
+        minimax_max_completion_tokens=MINIMAX_M3_MAX_COMPLETION_TOKENS,
     ):
         self.config = _Section(
             reasoning_effort=None,
@@ -95,6 +96,7 @@ class TestMiniMaxM3:
         assert kwargs["api_base"] == MINIMAX_BASE
         assert kwargs["api_key"] == "minimax-key"
         assert kwargs["reasoning_split"] is True
+        assert kwargs["max_completion_tokens"] == MINIMAX_M3_MAX_COMPLETION_TOKENS
 
     @pytest.mark.asyncio
     async def test_openai_prefixed_minimax_m3_normalizes_when_base_url_is_minimax(self, monkeypatch):
@@ -150,6 +152,22 @@ class TestMiniMaxM3:
         assert kwargs["thinking"] == {"type": "disabled"}
         assert kwargs["max_completion_tokens"] == 123
         assert kwargs["top_p"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_minimax_m3_max_completion_tokens_are_clamped_to_official_limit(self, monkeypatch):
+        settings = _Settings(
+            openai_key="minimax-key",
+            openai_api_base=MINIMAX_BASE,
+            minimax_max_completion_tokens=999999,
+        )
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: settings)
+
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new_callable=AsyncMock) as mock_call:
+            mock_call.return_value = _mock_response()
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(model="MiniMax-M3", system="sys", user="usr")
+
+        assert mock_call.call_args[1]["max_completion_tokens"] == MINIMAX_M3_MAX_COMPLETION_TOKENS
 
     def test_minimax_m3_token_aliases_are_registered(self):
         assert MAX_TOKENS["MiniMax-M3"] == 1000000
