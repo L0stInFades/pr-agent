@@ -12,6 +12,7 @@ from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
 MINIMAX_BASE = "https://api.minimax.io/v1"
 MINIMAX_M3_MAX_COMPLETION_TOKENS = 524288
+MINIMAX_M3_RECOMMENDED_MAX_COMPLETION_TOKENS = 131072
 
 
 class _Section:
@@ -35,7 +36,7 @@ class _Settings:
         litellm_extra_body=None,
         minimax_reasoning_split=True,
         minimax_thinking=None,
-        minimax_max_completion_tokens=MINIMAX_M3_MAX_COMPLETION_TOKENS,
+        minimax_max_completion_tokens=MINIMAX_M3_RECOMMENDED_MAX_COMPLETION_TOKENS,
     ):
         self.config = _Section(
             reasoning_effort=None,
@@ -96,7 +97,7 @@ class TestMiniMaxM3:
         assert kwargs["api_base"] == MINIMAX_BASE
         assert kwargs["api_key"] == "minimax-key"
         assert kwargs["reasoning_split"] is True
-        assert kwargs["max_completion_tokens"] == MINIMAX_M3_MAX_COMPLETION_TOKENS
+        assert kwargs["max_completion_tokens"] == MINIMAX_M3_RECOMMENDED_MAX_COMPLETION_TOKENS
 
     @pytest.mark.asyncio
     async def test_openai_prefixed_minimax_m3_normalizes_when_base_url_is_minimax(self, monkeypatch):

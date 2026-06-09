@@ -191,7 +191,7 @@ key = "..." # your MiniMax API key
 api_base = "https://api.minimax.io/v1"
 reasoning_split = true # keeps MiniMax-M3 thinking out of visible PR comments
 # thinking = "adaptive" # optional: "adaptive" or "disabled"
-max_completion_tokens = 524288 # MiniMax-M3 official maximum generation cap
+max_completion_tokens = 131072 # recommended high cap; MiniMax-M3 hard maximum is 524288
 ```
 
 For compatibility with existing OpenAI-style deployments, `OPENAI.KEY` and
