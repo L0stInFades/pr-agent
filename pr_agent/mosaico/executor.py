@@ -64,6 +64,7 @@ async def health_check() -> str:
         model = get_settings().get("CONFIG.MODEL", None)
         if not model:
             return "Unhealthy: no model configured"
+        model = handler._normalize_minimax_model(model)
 
         kwargs = {
             "model": model,
@@ -73,6 +74,10 @@ async def health_check() -> str:
         }
         if getattr(handler, "api_base", None):
             kwargs["api_base"] = handler.api_base
+        if handler._is_minimax_m3_model(model):
+            minimax_api_key = handler._get_minimax_api_key()
+            if minimax_api_key:
+                kwargs["api_key"] = minimax_api_key
 
         await litellm.acompletion(**kwargs)
         return "OK"

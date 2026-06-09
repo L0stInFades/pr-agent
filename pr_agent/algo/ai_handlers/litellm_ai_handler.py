@@ -25,6 +25,10 @@ from pr_agent.log import get_logger
 
 MODEL_RETRIES = 2
 DUMMY_LITELLM_API_KEY = "dummy_key"  # placeholder set when no OpenAI key is configured
+MINIMAX_M3_MODEL = "MiniMax-M3"
+MINIMAX_MODEL_PREFIX = "minimax/"
+MINIMAX_OPENAI_MODEL_PREFIX = "openai/"
+MINIMAX_API_BASE_MARKERS = ("api.minimax.io", "api.minimaxi.com")
 GEMINI_REASONING_MODEL_PREFIXES = (
     "gemini/gemini-2.5-",
     "gemini/gemini-3",
@@ -156,6 +160,15 @@ class LiteLLMAIHandler(BaseAiHandler):
         if get_settings().get("OPENAI.API_BASE", None):
             litellm.api_base = get_settings().openai.api_base
             self.api_base = get_settings().openai.api_base
+        if get_settings().get("MINIMAX.API_BASE", None):
+            minimax_api_base = get_settings().get("MINIMAX.API_BASE")
+            os.environ["MINIMAX_API_BASE"] = minimax_api_base
+            litellm.api_base = minimax_api_base
+            self.api_base = minimax_api_base
+        if get_settings().get("MINIMAX.KEY", None):
+            minimax_api_key = get_settings().get("MINIMAX.KEY")
+            os.environ["MINIMAX_API_KEY"] = minimax_api_key
+            litellm.api_key = minimax_api_key
         if get_settings().get("ANTHROPIC.KEY", None):
             litellm.anthropic_key = get_settings().anthropic.key
         if get_settings().get("COHERE.KEY", None):
@@ -426,11 +439,76 @@ class LiteLLMAIHandler(BaseAiHandler):
         """
         return get_settings().get("OPENAI.DEPLOYMENT_ID", None)
 
+    @staticmethod
+    def _is_minimax_api_base(api_base: str | None) -> bool:
+        return bool(api_base and any(marker in api_base for marker in MINIMAX_API_BASE_MARKERS))
+
+    @staticmethod
+    def _is_minimax_m3_model(model: str) -> bool:
+        return model in {
+            MINIMAX_M3_MODEL,
+            f"{MINIMAX_MODEL_PREFIX}{MINIMAX_M3_MODEL}",
+            f"{MINIMAX_OPENAI_MODEL_PREFIX}{MINIMAX_M3_MODEL}",
+        }
+
+    def _normalize_minimax_model(self, model: str) -> str:
+        if model == MINIMAX_M3_MODEL:
+            return f"{MINIMAX_MODEL_PREFIX}{MINIMAX_M3_MODEL}"
+        is_openai_minimax_m3 = model == f"{MINIMAX_OPENAI_MODEL_PREFIX}{MINIMAX_M3_MODEL}"
+        if is_openai_minimax_m3 and self._is_minimax_api_base(self.api_base):
+            return f"{MINIMAX_MODEL_PREFIX}{MINIMAX_M3_MODEL}"
+        return model
+
+    @staticmethod
+    def _as_bool(value, default: bool) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return default
+
+    def _get_minimax_api_key(self) -> str | None:
+        if get_settings().get("MINIMAX.KEY", None):
+            return get_settings().get("MINIMAX.KEY")
+        if os.environ.get("MINIMAX_API_KEY"):
+            return os.environ["MINIMAX_API_KEY"]
+        if self._is_minimax_api_base(self.api_base) and get_settings().get("OPENAI.KEY", None):
+            return get_settings().get("OPENAI.KEY")
+        return None
+
+    def _apply_minimax_m3_options(self, model: str, kwargs: dict) -> dict:
+        if not self._is_minimax_m3_model(model):
+            return kwargs
+
+        reasoning_split = self._as_bool(
+            get_settings().get("MINIMAX.REASONING_SPLIT", True), True
+        )
+        kwargs.setdefault("reasoning_split", reasoning_split)
+
+        thinking_type = get_settings().get("MINIMAX.THINKING", None)
+        if thinking_type in {"adaptive", "disabled"}:
+            kwargs.setdefault("thinking", {"type": thinking_type})
+
+        max_completion_tokens = get_settings().get("MINIMAX.MAX_COMPLETION_TOKENS", -1)
+        try:
+            max_completion_tokens = int(max_completion_tokens)
+        except (TypeError, ValueError):
+            max_completion_tokens = -1
+        if max_completion_tokens > 0:
+            kwargs.setdefault("max_completion_tokens", max_completion_tokens)
+
+        return kwargs
+
     @retry(
         retry=retry_if_exception_type(openai.APIError) & retry_if_not_exception_type(openai.RateLimitError),
         stop=stop_after_attempt(MODEL_RETRIES),
     )
     async def chat_completion(self, model: str, system: str, user: str, temperature: float = 0.2, img_path: str = None):
+        model = self._normalize_minimax_model(model)
         # Serialize env-var mutation + Bedrock call for IMDS mode to prevent concurrent
         # requests from interleaving os.environ credentials during asyncio.gather usage.
         _bedrock_imds = self._aws_imds_mode and 'bedrock/' in model
@@ -537,6 +615,7 @@ class LiteLLMAIHandler(BaseAiHandler):
 
                 # Support for custom OpenAI body fields (e.g., Flex Processing)
                 kwargs = _process_litellm_extra_body(kwargs)
+                kwargs = self._apply_minimax_m3_options(model, kwargs)
 
                 # Support for Bedrock custom inference profile via model_id
                 model_id = get_settings().get("litellm.model_id")
@@ -552,7 +631,12 @@ class LiteLLMAIHandler(BaseAiHandler):
 
                 # Inject api_key to the call. This key is populated during init by providers
                 # like Groq, SambaNova, XAI, Azure AD, and OpenRouter. Skip if None or placeholder.
-                if litellm.api_key and litellm.api_key != DUMMY_LITELLM_API_KEY:
+                minimax_api_key = (
+                    self._get_minimax_api_key() if self._is_minimax_m3_model(model) else None
+                )
+                if minimax_api_key:
+                    kwargs["api_key"] = minimax_api_key
+                elif litellm.api_key and litellm.api_key != DUMMY_LITELLM_API_KEY:
                     kwargs["api_key"] = litellm.api_key
 
                 # Get completion with automatic streaming detection

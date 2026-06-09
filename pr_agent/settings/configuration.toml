@@ -328,6 +328,12 @@ failure_callback = []
 service_callback = []
 # model_id = "" # Optional: Custom inference profile ID for Amazon Bedrock
 
+[minimax]
+api_base = "https://api.minimax.io/v1"
+reasoning_split = true # Keeps MiniMax-M3 thinking out of the visible content field
+thinking = "" # "", "adaptive", or "disabled"
+max_completion_tokens = -1 # Optional MiniMax-M3 generation cap; -1 leaves provider default
+
 [pr_similar_issue]
 skip_comments = false
 force_update_dataset = false

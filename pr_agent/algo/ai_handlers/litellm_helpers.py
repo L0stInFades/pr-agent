@@ -93,7 +93,18 @@ def _process_litellm_extra_body(kwargs: dict) -> dict:
     Raises:
         ValueError: If extra_body contains invalid JSON, unsupported keys, or colliding keys
     """
-    allowed_extra_body_keys = {"processing_mode", "service_tier"}
+    allowed_extra_body_keys = {
+        "max_completion_tokens",
+        "max_tokens",
+        "processing_mode",
+        "reasoning_split",
+        "service_tier",
+        "stream_options",
+        "thinking",
+        "tool_choice",
+        "tools",
+        "top_p",
+    }
     extra_body = getattr(getattr(get_settings(), "litellm", None), "extra_body", None)
     if extra_body:
         try:
@@ -102,7 +113,10 @@ def _process_litellm_extra_body(kwargs: dict) -> dict:
                 raise ValueError("LITELLM.EXTRA_BODY must be a JSON object")
             unsupported_keys = set(litellm_extra_body.keys()) - allowed_extra_body_keys
             if unsupported_keys:
-                raise ValueError(f"LITELLM.EXTRA_BODY contains unsupported keys: {', '.join(unsupported_keys)}. Allowed keys: {', '.join(allowed_extra_body_keys)}")
+                raise ValueError(
+                    f"LITELLM.EXTRA_BODY contains unsupported keys: {', '.join(unsupported_keys)}. "
+                    f"Allowed keys: {', '.join(allowed_extra_body_keys)}"
+                )
             colliding_keys = kwargs.keys() & litellm_extra_body.keys()
             if colliding_keys:
                 raise ValueError(f"LITELLM.EXTRA_BODY cannot override existing parameters: {', '.join(colliding_keys)}")

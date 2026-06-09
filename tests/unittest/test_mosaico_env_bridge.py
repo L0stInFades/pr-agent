@@ -17,8 +17,11 @@ from pr_agent.mosaico.observability import (mosaico_log_context,
 _SNAPSHOT_KEYS = [
     "OPENAI.API_BASE",
     "OPENAI.KEY",
+    "MINIMAX.API_BASE",
+    "MINIMAX.KEY",
     "CONFIG.MODEL",
     "CONFIG.FALLBACK_MODELS",
+    "CONFIG.MAX_MODEL_TOKENS",
     "CONFIG.CUSTOM_MODEL_MAX_TOKENS",
     "LITELLM.SUCCESS_CALLBACK",
     "LITELLM.FAILURE_CALLBACK",
@@ -79,6 +82,25 @@ class TestApplyMosaicoEnv:
         monkeypatch.setenv("MODEL_NAME", "anthropic/claude-x")
         apply_mosaico_env()
         assert get_settings().get("CONFIG.MODEL") == "anthropic/claude-x"
+
+    def test_minimax_m3_uses_minimax_provider_and_full_context(self, restore_settings, clear_mosaico_env, monkeypatch):
+        monkeypatch.setenv("API_BASE", "https://api.minimax.io/v1")
+        monkeypatch.setenv("API_KEY", "minimax-key")
+        monkeypatch.setenv("MODEL_NAME", "MiniMax-M3")
+        apply_mosaico_env()
+        s = get_settings()
+        assert s.get("CONFIG.MODEL") == "minimax/MiniMax-M3"
+        assert s.get("CONFIG.CUSTOM_MODEL_MAX_TOKENS") == 1000000
+        assert s.get("CONFIG.MAX_MODEL_TOKENS") == 1000000
+        assert s.get("MINIMAX.API_BASE") == "https://api.minimax.io/v1"
+        assert s.get("MINIMAX.KEY") == "minimax-key"
+
+    def test_minimax_model_with_explicit_prefix_is_not_double_prefixed(
+            self, restore_settings, clear_mosaico_env, monkeypatch):
+        monkeypatch.setenv("API_BASE", "https://api.minimax.io/v1")
+        monkeypatch.setenv("MODEL_NAME", "minimax/MiniMax-M3")
+        apply_mosaico_env()
+        assert get_settings().get("CONFIG.MODEL") == "minimax/MiniMax-M3"
 
     def test_register_langfuse_callback_appends_once(self, restore_settings, clear_mosaico_env, monkeypatch):
         monkeypatch.setenv("LANGFUSE_HOST", "https://lf.example")

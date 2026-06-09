@@ -176,6 +176,29 @@ key = ... # your SambaNova api key
 
 (you can obtain a SambaNova key from [here](https://cloud.sambanova.ai/apis))
 
+### MiniMax
+
+To use MiniMax M3 through MiniMax's OpenAI-compatible API, set:
+
+```toml
+[config] # in configuration.toml
+model = "minimax/MiniMax-M3"
+fallback_models = []
+max_model_tokens = 1000000
+
+[minimax] # in .secrets.toml
+key = "..." # your MiniMax API key
+api_base = "https://api.minimax.io/v1"
+reasoning_split = true # keeps MiniMax-M3 thinking out of visible PR comments
+# thinking = "adaptive" # optional: "adaptive" or "disabled"
+# max_completion_tokens = 4096 # optional generation cap
+```
+
+For compatibility with existing OpenAI-style deployments, `OPENAI.KEY` and
+`OPENAI.API_BASE="https://api.minimax.io/v1"` also work when the configured model is
+`MiniMax-M3` or `openai/MiniMax-M3`; PR-Agent normalizes the request to LiteLLM's
+`minimax/MiniMax-M3` provider internally.
+
 ### xAI
 
 To use xAI's models with PR-Agent, set:
