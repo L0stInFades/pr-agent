@@ -30,6 +30,7 @@ ujson==5.8.0
 uvicorn==0.22.0
 tenacity==8.2.3
 a2a-sdk[http-server]==0.3.26
+sse-starlette==3.0.3
 langfuse==3.14.5
 gunicorn==23.0.0
 pytest-cov==7.0.0
