@@ -57,12 +57,54 @@ extra_instructions="""\
 
 Then you can give a list of extra instructions to the `review` tool.
 
+### Loading the local configuration from a non-default branch
+
+`Platforms supported: GitHub`
+
+By default, the local `.pr_agent.toml` is read from the repo's **default branch**. When running PR-Agent from the CLI (or any wrapper that exposes its arguments), you can point it at a different branch — for example to test configuration changes from a feature branch before merging them:
+
+```bash
+python -m pr_agent.cli \
+  --pr_url=<PR URL> \
+  --config-branch=<branch name> \
+  review
+```
+
+Equivalently, set the `PR_AGENT_CONFIG_BRANCH` environment variable. The CLI flag takes precedence over the environment variable, and whitespace-only values are ignored.
+
+If `.pr_agent.toml` cannot be loaded from the requested branch (e.g. the branch or file does not exist), PR-Agent logs a warning and falls back to the default branch.
+
+!!! danger "Security: treat the config branch as privileged"
+    By default, configuration is read from the **default branch**, so only users who can merge to it can change how PR-Agent behaves. `--config-branch` / `PR_AGENT_CONFIG_BRANCH` move that trust boundary to whatever branch you name.
+
+    **Never set the config branch from untrusted or PR-derived input** (e.g. `--config-branch=$GITHUB_HEAD_REF` / `${{ github.head_ref }}` in CI). Doing so lets anyone who can push a branch to the repository supply their own `.pr_agent.toml` and control the review — for example pointing `model`/the API base at an attacker endpoint to exfiltrate the diff, injecting `extra_instructions`, or enabling auto-approval of their own PR. Always pin the config branch to a fixed, maintainer-controlled branch.
+
+!!! note "GitHub only"
+    Branch selection is currently implemented for GitHub. On all other platforms the `--config-branch` flag and `PR_AGENT_CONFIG_BRANCH` variable are ignored, and the local `.pr_agent.toml` is always read from the default branch.
+
 ## Global configuration file
 
 `Platforms supported: GitHub, GitLab (cloud), Bitbucket (cloud)`
 
-If you create a repo called `pr-agent-settings` in your **organization**, its configuration file `.pr_agent.toml` will be used as a global configuration file for any other repo that belongs to the same organization.
-Parameters from a local `.pr_agent.toml` file, in a specific repo, will override the global configuration parameters.
+Create a repository named `pr-agent-settings` at the organization level; its `.pr_agent.toml` (read from that repo's default branch) is used as a global configuration for every repository under the same organization:
+
+- **GitHub:** `<organization>/pr-agent-settings`
+- **GitLab (cloud):** `<top-level-group>/pr-agent-settings` (GitLab.com only; not applied on self-hosted GitLab)
+- **Bitbucket (cloud):** `<workspace>/pr-agent-settings`
+
+Parameters from a local `.pr_agent.toml` file, in a specific repo, will override the global configuration parameters (the global file is merged *beneath* the repo-local one).
+For GitHub Enterprise Server, use the same organization-level repository on your GHES host.
+The app installation or token used by PR-Agent must have read access to both the pull request repository and the `pr-agent-settings` repository; otherwise, PR-Agent will skip the global configuration and continue with repository-local settings.
+
+!!! note "Caching"
+    In long-running deployments (the GitHub App / webhook server), the fetched global settings are cached **in-process** for up to 15 minutes to avoid re-fetching on every webhook event, so a change to `pr-agent-settings` may take up to that long to take effect there. CLI and CI (GitHub Action) runs are short-lived processes, so they fetch the global settings once per invocation and always see the latest version.
+
+Loading the global settings file is controlled by the `use_global_settings_file` flag, which is **enabled by default**. To opt out and rely only on each repo's local `.pr_agent.toml`, set:
+
+```toml
+[config]
+use_global_settings_file = false
+```
 
 For example, in the GitHub organization `qodo-ai`:
 

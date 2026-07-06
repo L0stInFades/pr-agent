@@ -19,6 +19,8 @@ MINIMAX_M3_MAX_TOKENS = 1000000
 MINIMAX_API_BASE_MARKERS = ("api.minimax.io", "api.minimaxi.com")
 ENV_LANGFUSE_PUBLIC_KEY = "LANGFUSE_PUBLIC_KEY"
 ENV_LANGFUSE_SECRET_KEY = "LANGFUSE_SECRET_KEY"
+LANGFUSE_CALLBACK_NAME = "langfuse_otel"
+LEGACY_LANGFUSE_CALLBACK = "langfuse"
 
 
 def langfuse_env_present() -> bool:
@@ -93,9 +95,11 @@ def apply_mosaico_env() -> None:
 
 def _register_langfuse_callback(settings) -> None:
     for key in ("LITELLM.SUCCESS_CALLBACK", "LITELLM.FAILURE_CALLBACK"):
-        current = list(settings.get(key, []) or [])
-        if "langfuse" not in current:
-            current.append("langfuse")
-            settings.set(key, current)
+        # Drop the legacy 'langfuse' callback (incompatible with langfuse 3.x -> sdk_integration
+        # TypeError) and ensure exactly one 'langfuse_otel'.
+        current = [c for c in (settings.get(key, []) or []) if c != LEGACY_LANGFUSE_CALLBACK]
+        if LANGFUSE_CALLBACK_NAME not in current:
+            current.append(LANGFUSE_CALLBACK_NAME)
+        settings.set(key, current)
     settings.set("LITELLM.ENABLE_CALLBACKS", True)
     get_logger().info("MOSAICO: registered Langfuse litellm callback.")
