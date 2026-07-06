@@ -36,6 +36,15 @@ GEMINI_REASONING_MODEL_PREFIXES = (
     "vertex_ai/gemini-2.5-",
     "vertex_ai/gemini-3",
 )
+# Z.AI (GLM) models only expose two reasoning_effort tiers via their API: "high"
+# (the default) and "max" (recommended for coding tasks). Map PR-Agent's finer-grained
+# levels onto the closest tier so an unsupported value is never sent.
+ZAI_REASONING_EFFORT_MAP = {
+    ReasoningEffort.XHIGH.value: "max",
+    ReasoningEffort.HIGH.value: "high",
+    ReasoningEffort.MEDIUM.value: "high",
+    ReasoningEffort.LOW.value: "high",
+}
 
 
 class LiteLLMAIHandler(BaseAiHandler):
@@ -442,6 +451,10 @@ class LiteLLMAIHandler(BaseAiHandler):
     def _is_gemini_reasoning_model(model: str) -> bool:
         return model.startswith(GEMINI_REASONING_MODEL_PREFIXES)
 
+    @staticmethod
+    def _is_zai_reasoning_model(model: str) -> bool:
+        return model.startswith("zai/")
+
     def _supports_reasoning_effort(self, model: str) -> bool:
         return model in self.support_reasoning_models or self._is_gemini_reasoning_model(model)
 
@@ -463,6 +476,15 @@ class LiteLLMAIHandler(BaseAiHandler):
                 "Using 'high', which maps to Gemini thinkingLevel='high'."
             )
             return ReasoningEffort.HIGH.value
+
+        if self._is_zai_reasoning_model(model):
+            zai_effort = ZAI_REASONING_EFFORT_MAP.get(effort, ReasoningEffort.HIGH.value)
+            if zai_effort != effort:
+                get_logger().info(
+                    f"Z.AI (GLM) models support reasoning_effort values 'high' and 'max' only. "
+                    f"Mapping '{effort}' to '{zai_effort}'."
+                )
+            return zai_effort
 
         return effort
 
@@ -661,6 +683,11 @@ class LiteLLMAIHandler(BaseAiHandler):
                     reasoning_effort = self._get_configured_reasoning_effort(model)
                     get_logger().info(f"Adding reasoning_effort with value {reasoning_effort} to model {model}.")
                     kwargs["reasoning_effort"] = reasoning_effort
+                    if self._is_zai_reasoning_model(model):
+                        # LiteLLM's zai/ provider config doesn't declare reasoning_effort as a
+                        # supported param (only 'thinking'), so it would otherwise be silently
+                        # dropped before the request is sent. Explicitly allow it through.
+                        kwargs["allowed_openai_params"] = ["reasoning_effort"]
 
                 # https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
                 if (model in self.claude_extended_thinking_models) and get_settings().config.get("enable_claude_extended_thinking", False):

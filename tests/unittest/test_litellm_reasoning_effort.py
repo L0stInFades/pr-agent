@@ -898,3 +898,147 @@ class TestLiteLLMReasoningEffort:
                 assert call_kwargs["model"] == expected, (
                     f"wrong routing for {input_model}: got {call_kwargs['model']}, expected {expected}"
                 )
+
+    # ========== Group 9: Z.AI (GLM) Provider ==========
+
+    @pytest.mark.asyncio
+    async def test_zai_glm_xhigh_maps_to_max(self, monkeypatch, mock_logger):
+        """PR-Agent's xhigh maps to GLM's 'max' tier (recommended for coding tasks)."""
+        fake_settings = create_mock_settings("xhigh")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="zai/glm-5.2",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "max"
+            assert call_kwargs["allowed_openai_params"] == ["reasoning_effort"]
+            mock_logger.info.assert_any_call(
+                "Z.AI (GLM) models support reasoning_effort values 'high' and 'max' only. "
+                "Mapping 'xhigh' to 'max'."
+            )
+
+    @pytest.mark.asyncio
+    async def test_zai_glm_high_stays_high(self, monkeypatch, mock_logger):
+        """GLM's own default tier ('high') passes through unchanged."""
+        fake_settings = create_mock_settings("high")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="zai/glm-5.2",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            assert call_kwargs["allowed_openai_params"] == ["reasoning_effort"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("configured_effort", ["medium", "low"])
+    async def test_zai_glm_medium_and_low_clamp_to_high(self, monkeypatch, mock_logger, configured_effort):
+        """GLM has no 'medium'/'low' tier; PR-Agent clamps both to GLM's 'high'."""
+        fake_settings = create_mock_settings(configured_effort)
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="zai/glm-5.2",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            assert call_kwargs["allowed_openai_params"] == ["reasoning_effort"]
+            mock_logger.info.assert_any_call(
+                "Z.AI (GLM) models support reasoning_effort values 'high' and 'max' only. "
+                f"Mapping '{configured_effort}' to 'high'."
+            )
+
+    @pytest.mark.asyncio
+    async def test_zai_glm_none_config_defaults_to_high(self, monkeypatch, mock_logger):
+        """An unset config falls back to PR-Agent's 'medium', which GLM further clamps to 'high'."""
+        fake_settings = create_mock_settings(None)
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="zai/glm-5.2",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            mock_logger.warning.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_zai_glm_invalid_config_defaults_to_high_with_warning(self, monkeypatch, mock_logger):
+        """An invalid config value warns, falls back to 'medium', then clamps to GLM's 'high'."""
+        fake_settings = create_mock_settings("extreme")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="zai/glm-5.2",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            mock_logger.warning.assert_called_once()
+            assert "Invalid reasoning_effort 'extreme' in config" in mock_logger.warning.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_non_zai_model_does_not_get_allowed_openai_params(self, monkeypatch, mock_logger):
+        """Only zai/ models need the allowed_openai_params override; others must not get it."""
+        fake_settings = create_mock_settings("high")
+        monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
+
+        with patch(
+            'pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock
+        ) as mock_completion:
+            mock_completion.return_value = create_mock_acompletion_response()
+
+            handler = LiteLLMAIHandler()
+            await handler.chat_completion(
+                model="o3-mini",
+                system="test system",
+                user="test user"
+            )
+
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["reasoning_effort"] == "high"
+            assert "allowed_openai_params" not in call_kwargs

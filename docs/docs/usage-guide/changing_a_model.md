@@ -449,6 +449,10 @@ from [Z.ai](https://z.ai/manage-apikey/apikey-list) (international) or
 [Z.AI provider docs](https://docs.litellm.ai/docs/providers/zai) for details; any other GLM model
 (e.g. `zai/glm-4.7`) works the same way.
 
+GLM-5.2 only supports two `reasoning_effort` tiers: `high` (the default) and `max` (recommended
+for coding tasks). Set `config.reasoning_effort = "xhigh"` to request GLM's `max` tier; PR-Agent
+maps its other levels (`low`, `medium`, `high`) to GLM's `high`.
+
 ### Openrouter
 
 To use model from Openrouter, for example, set:
@@ -491,7 +495,7 @@ custom_model_max_tokens= ...
 
 ## Dedicated parameters
 
-### OpenAI and Gemini models
+### OpenAI, Gemini, and GLM models
 
 ```toml
 [config]
@@ -501,6 +505,8 @@ reasoning_effort = "medium" # "none", "minimal", "low", "medium", "high", "xhigh
 With the OpenAI models that support reasoning effort (eg: gpt-5.4-mini), you can specify its reasoning effort via `config` section. The default value is `medium`. You can change it to any supported value based on your usage. Available values depend on the model and provider.
 
 For Google AI Studio or Vertex Gemini 3 models, LiteLLM maps `reasoning_effort` to Gemini's `thinkingLevel`. Use `reasoning_effort = "high"` for the maximum Gemini thinking level on models such as `gemini/gemini-3.1-pro-preview` and `gemini/gemini-3.5-flash`. Gemini 3 models do not support `xhigh`, so PR-Agent maps `xhigh` to `high` for Gemini models.
+
+For Z.AI's GLM-5.2 (`zai/glm-5.2`), PR-Agent forwards `reasoning_effort` to the two tiers GLM's API accepts: `xhigh` maps to GLM's `max` (recommended for coding tasks), while `low`, `medium`, and `high` all map to GLM's `high` (the default).
 
 ### Anthropic models
 

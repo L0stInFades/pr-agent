@@ -364,6 +364,7 @@ SUPPORT_REASONING_EFFORT_MODELS = [
     "o3-2025-04-16",
     "o4-mini",
     "o4-mini-2025-04-16",
+    "zai/glm-5.2",
 ]
 
 # Claude models that support "extended thinking" through the manual
