@@ -290,3 +290,15 @@ class TestGetMaxTokens:
         monkeypatch.setattr(utils, "get_settings", lambda: fake_settings)
 
         assert get_max_tokens(model) == 200000
+
+    def test_glm_5_2_model_max_tokens(self, monkeypatch):
+        fake_settings = type('', (), {
+            'config': type('', (), {
+                'custom_model_max_tokens': 0,
+                'max_model_tokens': 0
+            })()
+        })()
+
+        monkeypatch.setattr(utils, "get_settings", lambda: fake_settings)
+
+        assert get_max_tokens("zai/glm-5.2") == 1000000

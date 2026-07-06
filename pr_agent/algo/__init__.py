@@ -73,6 +73,7 @@ MAX_TOKENS = {
     'openai/MiniMax-M3': 1000000,  # OpenAI-compatible alias, but may be limited by config.max_model_tokens
     'deepseek/deepseek-v4-pro': 1000000,  # 1M, but may be limited by config.max_model_tokens
     'deepseek/deepseek-v4-flash': 1000000,  # 1M, but may be limited by config.max_model_tokens
+    'zai/glm-5.2': 1000000,  # 1M context, 128K max output, but may be limited by config.max_model_tokens
     'openai/qwq-plus': 131072,  # 131K context length, but may be limited by config.max_model_tokens
     'replicate/llama-2-70b-chat:2c1608e18606fad2812020dc541930f2d0495ce32eee50074220b87300bc16e1': 4096,
     'meta-llama/Llama-2-7b-chat-hf': 4096,

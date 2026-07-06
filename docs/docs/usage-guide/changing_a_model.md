@@ -427,6 +427,28 @@ api_base = "https://adb-xxxx.azuredatabricks.net/serving-endpoints" # your works
 
 The model name after the `databricks/` prefix is the name of your serving endpoint. See LiteLLM's [Databricks provider docs](https://docs.litellm.ai/docs/providers/databricks) for details.
 
+### GLM (Zhipu AI / Z.ai)
+
+To use Zhipu AI's GLM-5.2 model, for example, set:
+
+```toml
+[config] # in configuration.toml
+model = "zai/glm-5.2"
+fallback_models = []
+max_model_tokens = 1000000
+
+[zai] # in .secrets.toml
+key = "..." # your Z.ai / Zhipu AI API key
+# api_base = "https://open.bigmodel.cn/api/paas/v4" # uncomment to use the China mainland (bigmodel.cn) endpoint instead of the default api.z.ai endpoint
+```
+
+GLM-5.2 has a 1M-token context window (128K max output) and enables deep thinking (reasoning) by
+default, so no extra configuration is needed to get reasoning behavior. You can obtain an API key
+from [Z.ai](https://z.ai/manage-apikey/apikey-list) (international) or
+[bigmodel.cn](https://open.bigmodel.cn) (China mainland). See LiteLLM's
+[Z.AI provider docs](https://docs.litellm.ai/docs/providers/zai) for details; any other GLM model
+(e.g. `zai/glm-4.7`) works the same way.
+
 ### Openrouter
 
 To use model from Openrouter, for example, set:

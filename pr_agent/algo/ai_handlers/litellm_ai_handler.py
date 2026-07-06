@@ -228,6 +228,13 @@ class LiteLLMAIHandler(BaseAiHandler):
         if get_settings().get("DATABRICKS.API_BASE", None):
             os.environ["DATABRICKS_API_BASE"] = get_settings().get("DATABRICKS.API_BASE")
 
+        # Support Z.AI (Zhipu AI) GLM models, e.g. GLM-5.2, via LiteLLM's native 'zai/' provider.
+        # SEE https://docs.litellm.ai/docs/providers/zai
+        if get_settings().get("ZAI.KEY", None):
+            os.environ["ZAI_API_KEY"] = get_settings().get("ZAI.KEY")
+        if get_settings().get("ZAI.API_BASE", None):
+            os.environ["ZAI_API_BASE"] = get_settings().get("ZAI.API_BASE")
+
         # Check for Azure AD configuration
         if get_settings().get("AZURE_AD.CLIENT_ID", None):
             self.azure = True
